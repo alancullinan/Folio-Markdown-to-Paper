@@ -10,3 +10,4 @@ main:not([data-view="split"]) #divider{display:none}
 .source-measure{position:fixed;left:-20000px;top:0;visibility:hidden;pointer-events:none;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;border:0;}
 @media(max-width:720px){#divider{display:none}}
 @media print{#divider,.source-measure{display:none!important}}
+@media screen{#pages [data-source-line]:not(:has([data-source-line])){cursor:pointer}#pages [data-source-line]:not(:has([data-source-line])):hover{outline:1px dashed #9aaa9a;outline-offset:3px}#pages [data-source-line]:focus-visible{outline:2px solid #24654f;outline-offset:3px}#pages a,#pages input{cursor:pointer}}

@@ -121,9 +121,51 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     scheduled=requestAnimationFrame(()=>sync(leader));
   }
   function invalidate() { mapDirty=true; }
+  function decoratePreview() {
+    if (!isReady()) return;
+    for (const block of pages.querySelectorAll('[data-source-line]')) {
+      if (block.querySelector('[data-source-line]')) continue;
+      block.tabIndex = 0;
+      block.setAttribute('title', 'Click or press Enter to edit the Markdown source');
+      block.setAttribute('aria-keyshortcuts', 'Enter');
+    }
+  }
+  function editBlock(block) {
+    if (!isReady()) return;
+    const lines = editor.value.split('\n');
+    const startLine = Number(block.dataset.sourceLine), endLine = Number(block.dataset.sourceEnd);
+    if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 0 || endLine <= startLine || endLine > lines.length) return;
+    const start = lines.slice(0, startLine).reduce((n,line)=>n+line.length+1,0);
+    const end = Math.min(editor.value.length, start+lines.slice(startLine,endLine).join('\n').length);
+    leader = editor;
+    if (main.dataset.view === 'preview') document.querySelector('.view-tabs [data-view="split"]').click();
+    // Selecting the original source block also works for fragments split across pages.
+    editor.focus({preventScroll:true});
+    editor.setSelectionRange(start, end);
+    measureSource();
+    suppress = preview; clearTimeout(suppressionTimer);
+    editor.scrollTop = Math.max(0,lineOffsets[startLine]-Math.min(72,editor.clientHeight*.15));
+    editor.dispatchEvent(new Event('click')); // Refresh the line/column indicator.
+    if (!matchMedia('(min-width: 721px)').matches) editor.scrollIntoView({block:'center'});
+    suppressionTimer=setTimeout(()=>{suppress=null},120);
+    refresh();
+  }
+  pages.addEventListener('click',event=>{
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (event.target.closest('a,button,input,select,textarea,summary')) return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return; // Keep drag-to-copy working.
+    const block=event.target.closest('[data-source-line]');
+    if (block && pages.contains(block)) editBlock(block);
+  });
+  pages.addEventListener('keydown',event=>{
+    if (event.key !== 'Enter' || event.target.closest('a,button,input,select,textarea,summary')) return;
+    const block=event.target.closest('[data-source-line]');
+    if (block && pages.contains(block)) {event.preventDefault();editBlock(block)}
+  });
   function refresh() {
     invalidate(); cancelAnimationFrame(scheduled);
-    scheduled=requestAnimationFrame(()=>sync(leader));
+    scheduled=requestAnimationFrame(()=>{decoratePreview();sync(leader)});
   }
   for (const pane of [editor,preview]) {
     pane.addEventListener('scroll',onScroll,{passive:true});
