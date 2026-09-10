@@ -38,3 +38,4 @@ html[data-theme="dark"]{color-scheme:dark;--ink:#e0e8df;--muted:#a6b3a9;--line:#
 [data-theme="dark"] .pagedjs_page{box-shadow:0 3px 20px #0005}
 }
 @media print{html,body,#pages{color-scheme:light!important}}
+.style-fields{display:grid;grid-template-columns:120px minmax(0,1fr);gap:15px;align-items:center;margin:25px 0}.style-fields select{padding:10px;border:1px solid var(--line);border-radius:5px;background:transparent;color:var(--ink);width:100%}.style-check{display:flex;gap:10px;align-items:center;font-size:14px}.style-check input{accent-color:var(--accent)}

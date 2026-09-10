@@ -5,12 +5,16 @@
   "description": "A local-first Markdown editor with paginated A4 preview",
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node tests/workspace.cjs && node tests/click-edit.cjs && node tests/theme.cjs"
+    "test": "node tests/workspace.cjs && node tests/click-edit.cjs && node tests/theme.cjs && node tests/document-style.cjs"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/lora": "^5.3.0",
+    "@fontsource/source-sans-3": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.0",
     "dompurify": "^3.4.15",
     "github-plugin-github-openai-curated-remote": "file:../..",
     "highlight.js": "^11.12.0",

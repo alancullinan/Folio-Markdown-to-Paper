@@ -9,6 +9,16 @@ esbuild.buildSync({entryPoints:[path.join(root,'src/main.js')],bundle:true,minif
 fs.copyFileSync(require.resolve('katex/dist/katex.min.css'),path.join(out,'vendor.css'));
 fs.appendFileSync(path.join(out,'vendor.css'),'\n'+fs.readFileSync(require.resolve('highlight.js/styles/github.css'),'utf8'));
 fs.cpSync(path.join(root,'node_modules/katex/dist/fonts'),path.join(out,'fonts'),{recursive:true});
+for (const family of ['source-serif-4','source-sans-3','lora','ibm-plex-mono']) {
+  const directory=path.join(root,'node_modules/@fontsource',family);
+  for (const variant of ['latin-400','latin-700','latin-400-italic']) {
+    const css=fs.readFileSync(path.join(directory,variant+'.css'),'utf8').replace(/url\(\.\/files\/([^)]+)\)/g,(_,file)=>{
+      fs.copyFileSync(path.join(directory,'files',file),path.join(out,'fonts',file));
+      return 'url(fonts/'+file+')';
+    });
+    fs.appendFileSync(path.join(out,'vendor.css'),'\n'+css);
+  }
+}
 let notices='Folio bundles open-source dependencies. Package licenses follow.\n';
 function licenses(folder) {
   for (const dir of fs.readdirSync(folder,{withFileTypes:true})) {

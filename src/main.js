@@ -15,6 +15,7 @@ import {Previewer} from 'pagedjs';
 import documentCSS from './document.css';
 import {sourceLocations, blockLocation, setupWorkspace} from './workspace.js';
 import {setupTheme} from './theme.js';
+import {documentStyle,loadDocumentFonts,repeatTableHeaders} from './document-style.js';
 const $=id=>document.getElementById(id), editor=$('editor');
 const sample = `# A good idea deserves a beautiful page.
 
@@ -94,7 +95,7 @@ mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels:false,th
 let revision=0,rendered=-1,running=null,timer,previewer,dirty=false,lastSaved='',imageMap=new Map(),toastTimer;
 const printStyle=document.createElement('style');document.head.append(printStyle);
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4500)}
-function settings(){return {paper:$('paper').value,margin:$('margin').value,typeface:$('typeface').value,fontsize:$('fontsize').value,numbers:$('numbers').checked}}
+function settings(){return {paper:$('paper').value,margin:$('margin').value,typeface:$('typeface').value,fontsize:$('fontsize').value,numbers:$('numbers').checked,headingFont:$('headingFont').value,tableStyle:$('tableStyle').value,tableAccent:$('tableAccent').value,repeatHeaders:$('repeatHeaders').checked}}
 function persist(){try{localStorage.setItem('folio-draft-v1',JSON.stringify({text:editor.value,name:$('filename').value,settings:settings()}));$('saveState').textContent=dirty?'Draft saved in browser':'Saved .md';}catch{$('saveState').textContent='Browser storage unavailable · save .md'}}
 function stats(){const s=editor.value;const words=(s.trim().match(/\S+/g)||[]).length;$('stats').textContent=`${words.toLocaleString()} words · ${s.length.toLocaleString()} characters`;const before=s.slice(0,editor.selectionStart).split('\n');$('caret').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`}
 let history=[],historyIndex=0,restoring=false,lastEditTime=0,lastEditType='',lastCursor=-1,mergeTyping=false;
@@ -131,12 +132,14 @@ async function renderOnce(){
  for(const el of wrap.querySelectorAll('[data-diagram]')){try{const {svg}=await mermaid.render(`diagram${rev}_${el.dataset.diagram}`,diagrams[+el.dataset.diagram]);el.innerHTML=DOMPurify.sanitize(svg,{USE_PROFILES:{html:true,svg:true,svgFilters:true},ADD_TAGS:['style','foreignObject']});}catch{el.className='render-error';el.textContent='Diagram could not be rendered. Check the Mermaid syntax.\n'+diagrams[+el.dataset.diagram];warnings++}}
  for(const img of wrap.querySelectorAll('img')){const src=img.getAttribute('src');if(imageMap.has(src))img.src=imageMap.get(src);img.loading='eager';img.removeAttribute('width');img.removeAttribute('height')}
  await Promise.all([...wrap.querySelectorAll('img')].map(img=>new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(t);if(!img.naturalWidth){warnings++;const label=document.createElement('span');label.className='render-error';label.textContent=`[Image unavailable: ${img.alt||img.getAttribute('src')}]`;img.replaceWith(label)}resolve()};const t=setTimeout(finish,5000);img.onload=img.onerror=finish;if(img.complete)finish()})));
+ wrap.querySelectorAll('tbody').forEach(body=>[...body.rows].forEach((row,i)=>row.classList.toggle('folio-row-odd',i%2===0)));
+ await loadDocumentFonts(opts);
  await document.fonts.ready;
  if(rev!==revision)return;
  if(previewer){previewer.chunker.destroy();previewer.polisher.destroy();}
- $('pages').innerHTML='';previewer=new Previewer();
+ $('pages').innerHTML='';previewer=new Previewer();if(opts.repeatHeaders)repeatTableHeaders(previewer);
  const css=`${documentCSS}\n@page { size: ${opts.paper}; margin: ${opts.margin}mm; @bottom-center { content: ${opts.numbers?'counter(page)':'none'}; font-family: Calibri, sans-serif; font-size: 9pt; color: #859087; } } .document {font-family:${opts.typeface==='sans'?"Calibri, 'Segoe UI', sans-serif":"Georgia, 'Times New Roman', serif"};font-size:${opts.fontsize}pt;}`;
- const flow=await previewer.preview(wrap.outerHTML,[{[location.href]:css}],$('pages'));
+ const flow=await previewer.preview(wrap.outerHTML,[{[location.href]:css+'\n'+documentStyle(opts)}],$('pages'));
  printStyle.textContent=`@media print { @page { size: ${opts.paper}; margin: 0; } }`;document.head.append(printStyle);
  rendered=rev;fit();$('pageCount').textContent=`/ ${flow.total} ${flow.total===1?'PAGE':'PAGES'}`;$('renderState').textContent=warnings?`Ready · ${warnings} image or diagram warning(s)`:`${opts.paper} · ${opts.margin} mm margins · Ready to print`;
 }
@@ -162,7 +165,8 @@ document.querySelectorAll('[data-before]').forEach(b=>b.onclick=()=>/^#{1,6} $/.
 $('code').onclick=()=>insert('\n```javascript\n','\n```\n','// Your code here');$('table').onclick=()=>insert('\n','\n','| Column | Column |\n| --- | --- |\n| Cell | Cell |');$('break').onclick=()=>insert('\n\n<!-- pagebreak -->\n\n','','');
 $('save').onclick=save;$('open').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{openFile(e.target.files[0]);e.target.value=''};
 $('new').onclick=()=>{if(!canReplace())return;editor.value='';$('filename').value='Untitled.md';lastSaved='';imageMap.clear();resetHistory();changed();editor.focus()};
-$('filename').oninput=()=>{dirty=true;persist()};['paper','margin','typeface','fontsize','numbers'].forEach(id=>$(id).onchange=changed);
+$('filename').oninput=()=>{dirty=true;persist()};['paper','margin','typeface','fontsize','numbers','headingFont','tableStyle','tableAccent','repeatHeaders'].forEach(id=>$(id).onchange=changed);
+$('styles').onclick=()=>$('styleDialog').showModal();$('closeStyles').onclick=()=>$('styleDialog').close();
 $('zoom').onchange=fit;new ResizeObserver(fit).observe($('previewScroll'));
 document.querySelectorAll('[data-view]').forEach(b=>{if(b.tagName!=='BUTTON')return;b.onclick=()=>{document.querySelector('main').dataset.view=b.dataset.view;document.querySelectorAll('.view-tabs button').forEach(t=>t.classList.toggle('selected',t===b));fit()}});
 $('pdf').onclick=()=>printDoc(true);$('print').onclick=()=>printDoc(false);$('help').onclick=()=>$('guide').showModal();$('closeHelp').onclick=()=>$('guide').close();
@@ -170,7 +174,7 @@ $('images').onclick=()=>$('imageInput').click();$('imageInput').onchange=async e
 document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey))return;const key=e.key.toLowerCase();if(['s','o','p'].includes(key)){e.preventDefault();if(key==='s')save();if(key==='o')$('fileInput').click();if(key==='p')printDoc()}if(document.activeElement===editor&&['b','i'].includes(key)){e.preventDefault();insert(key==='b'?'**':'*',key==='b'?'**':'*')}});
 let dragDepth=0;document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;document.body.classList.add('dragging')}});document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('dragleave',()=>{if(--dragDepth<=0)document.body.classList.remove('dragging')});document.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');openFile(e.dataTransfer.files[0])});
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
-editor.value=sample;try{const draft=JSON.parse(localStorage.getItem('folio-draft-v1'));if(draft&&typeof draft.text==='string'){editor.value=draft.text;$('filename').value=draft.name||'Untitled.md';for(const [key,val]of Object.entries(draft.settings||{})){if(key==='numbers')$(key).checked=!!val;else if($(key)&&[...$(key).options].some(o=>o.value===String(val)))$(key).value=val}}}catch{}
+editor.value=sample;try{const draft=JSON.parse(localStorage.getItem('folio-draft-v1'));if(draft&&typeof draft.text==='string'){editor.value=draft.text;$('filename').value=draft.name||'Untitled.md';for(const [key,val]of Object.entries(draft.settings||{})){if(['numbers','repeatHeaders'].includes(key))$(key).checked=!!val;else if($(key)?.options&&[...$(key).options].some(o=>o.value===String(val)))$(key).value=val}}}catch{}
 setupTheme();
 workspace=setupWorkspace({editor,preview:$('previewScroll'),pages:$('pages'),fit,isReady:()=>rendered===revision});
 lastSaved=editor.value;resetHistory();stats();ensureRendered();
