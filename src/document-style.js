@@ -34,7 +34,12 @@ export function documentStyle(options) {
     compact:'.document th,.document td{padding:1.2mm 2mm;border:0;border-bottom:1px solid '+line+'}.document table{font-size:.8em}'
   };
   return `.document{font-family:${body};font-size:${options.fontsize}pt}
-  .document h1,.document h2,.document h3,.document h4,.document h5,.document h6{font-family:${heading}}
+  .document h1,.document h2,.document h3,.document h4,.document h5,.document h6{font-family:${heading};color:${accent}}
+  .document a{color:${accent}}
+  .document h2{border-bottom-color:${line}}
+  .document hr{border-top-color:${line}}
+  .document blockquote{border-left-color:${accent};background:${tint};color:${accent}}
+  .document .task-list-item input{accent-color:${accent}}
   .document th{font-family:${body};font-weight:700;background:${tint};color:${accent}}
   ${tableStyles[options.tableStyle]||tableStyles.minimal}
   .document thead{break-inside:avoid;break-after:avoid}`;

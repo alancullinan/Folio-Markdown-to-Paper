@@ -14,7 +14,7 @@ A browser-based Markdown editor with a live, paginated A4 preview. Documents are
 - Tables, tasks, footnotes, highlighted code, KaTeX math, and Mermaid diagrams.
 - A4 by default; adjustable paper, margins, fonts, zoom, and page numbers.
 - Bundled Source Serif 4, Source Sans 3, Lora, and IBM Plex Mono fonts, with separate body and heading choices. Fonts are available offline and embedded by the browser in PDF output.
-- Document style panel with Minimal, Grid, Striped, and Compact tables, five accent colours, and optional repeated table headers across pages. Style settings are stored with browser drafts; Markdown downloads remain plain content.
+- Document style panel with Minimal, Grid, Striped, and Compact tables, five document-wide accent colours (headings, links, quotes, rules, and tables), and optional repeated table headers across pages. Style settings are stored with browser drafts; Markdown downloads remain plain content.
 - Print or export through your browser's **Save as PDF** dialog.
 
 Linked scrolling operates in the side-by-side desktop view. Long blocks are aligned approximately within the block; source-only syntax and blank space do not always have an exact rendered counterpart. Split width and link preference are saved in this browser.
