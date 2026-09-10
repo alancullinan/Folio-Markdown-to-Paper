@@ -115,7 +115,7 @@ function recordHistory(event){
 function travelHistory(step){const next=historyIndex+step;if(next<0||next>=history.length)return;rememberSelection();historyIndex=next;const state=history[next];restoring=true;editor.value=state.text;editor.focus();editor.setSelectionRange(state.start,state.end);editor.scrollTop=state.scroll;changed();restoring=false;lastEditType='';lastCursor=-1;historyButtons()}
 function changed(event){workspace?.invalidate();recordHistory(event);dirty=editor.value!==lastSaved;revision++;stats();persist();$('renderState').textContent='Updating pages…';clearTimeout(timer);timer=setTimeout(ensureRendered,550)}
 let workspace;
-function fit(){const page=$('pages').querySelector('.pagedjs_page');if(!page)return;const v=$('zoom').value;$('pages').style.zoom=v==='fit'?Math.min(1,Math.max(.2,($('previewScroll').clientWidth-60)/page.offsetWidth)):Number(v);workspace?.refresh()}
+function fit(){const page=$('pages').querySelector('.pagedjs_page');if(!page)return;const v=$('zoom').value;$('pages').style.zoom=v==='fit'?Math.max(.2,($('previewScroll').clientWidth-60)/page.offsetWidth):Number(v);workspace?.refresh()}
 async function renderOnce(){
  const rev=revision, source=editor.value,opts=settings();$('pdf').disabled=$('print').disabled=true;$('renderState').textContent='Typesetting…';
  diagrams=[];math=[];const raw=md.render(source||' ');const wrap=document.createElement('article');wrap.className='document';
@@ -172,6 +172,7 @@ window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.return
 editor.value=sample;try{const draft=JSON.parse(localStorage.getItem('folio-draft-v1'));if(draft&&typeof draft.text==='string'){editor.value=draft.text;$('filename').value=draft.name||'Untitled.md';for(const [key,val]of Object.entries(draft.settings||{})){if(key==='numbers')$(key).checked=!!val;else if($(key)&&[...$(key).options].some(o=>o.value===String(val)))$(key).value=val}}}catch{}
 workspace=setupWorkspace({editor,preview:$('previewScroll'),pages:$('pages'),fit,isReady:()=>rendered===revision});
 lastSaved=editor.value;resetHistory();stats();ensureRendered();
+
 
 
 
