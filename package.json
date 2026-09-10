@@ -5,7 +5,7 @@
   "description": "A local-first Markdown editor with paginated A4 preview",
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node tests/workspace.cjs && node tests/click-edit.cjs"
+    "test": "node tests/workspace.cjs && node tests/click-edit.cjs && node tests/theme.cjs"
   },
   "engines": {
     "node": ">=22"

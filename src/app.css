@@ -11,3 +11,30 @@ main:not([data-view="split"]) #divider{display:none}
 @media(max-width:720px){#divider{display:none}}
 @media print{#divider,.source-measure{display:none!important}}
 @media screen{#pages [data-source-line]:not(:has([data-source-line])){cursor:pointer}#pages [data-source-line]:not(:has([data-source-line])):hover{outline:1px dashed #9aaa9a;outline-offset:3px}#pages [data-source-line]:focus-visible{outline:2px solid #24654f;outline-offset:3px}#pages a,#pages input{cursor:pointer}}
+/* Dark workspace, with a faithful light paper preview. */
+@media screen {
+html[data-theme="dark"]{color-scheme:dark;--ink:#e0e8df;--muted:#a6b3a9;--line:#3c4942;--accent:#397b5c;background:#1a221e}
+[data-theme="dark"] body{background:#1a221e}
+[data-theme="dark"] header,[data-theme="dark"] .editor-panel{background:#202a24}
+[data-theme="dark"] .settings,[data-theme="dark"] .preview-panel{background:#26322b}
+[data-theme="dark"] .view-tabs{background:#18221c}
+[data-theme="dark"] .selected{background:#405447!important;color:#f1f6ef;box-shadow:none}
+[data-theme="dark"] button:hover{background:#3c5042}
+[data-theme="dark"] .primary{background:#397b5c;color:white}
+[data-theme="dark"] .primary:hover{background:#468d6b}
+[data-theme="dark"] #theme[aria-pressed="true"]{background:#3b5344;border-color:#8bad94;color:#f1f6ef}
+[data-theme="dark"] .brand-icon{background:#d8e5d5;color:#22372b}
+[data-theme="dark"] #editor{color:#d6e4d7;caret-color:#adcfad}
+[data-theme="dark"] #editor::placeholder{color:#a6b3a9}
+[data-theme="dark"] .formatting{border-color:var(--line)}
+[data-theme="dark"] .panel-title,[data-theme="dark"] .editor-bottom,[data-theme="dark"] .preview-bottom,[data-theme="dark"] #pageCount{color:#b2bfb5}
+[data-theme="dark"] #previewScroll{background-color:#151d18;background-image:radial-gradient(#354339 .7px,transparent .7px)}
+[data-theme="dark"] #divider{background:#344238}
+[data-theme="dark"] #divider::after{background:#95ad99}
+[data-theme="dark"] #divider:hover,[data-theme="dark"] #divider.dragging,[data-theme="dark"] #divider:focus-visible{background:#516d59}
+[data-theme="dark"] select option{background:#26322b;color:#e0e8df}
+[data-theme="dark"] dialog{background:#26322b}
+[data-theme="dark"] #pages{color-scheme:light}
+[data-theme="dark"] .pagedjs_page{box-shadow:0 3px 20px #0005}
+}
+@media print{html,body,#pages{color-scheme:light!important}}

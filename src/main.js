@@ -14,6 +14,7 @@ import hljs from 'highlight.js';
 import {Previewer} from 'pagedjs';
 import documentCSS from './document.css';
 import {sourceLocations, blockLocation, setupWorkspace} from './workspace.js';
+import {setupTheme} from './theme.js';
 const $=id=>document.getElementById(id), editor=$('editor');
 const sample = `# A good idea deserves a beautiful page.
 
@@ -170,6 +171,7 @@ document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey))return;const 
 let dragDepth=0;document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;document.body.classList.add('dragging')}});document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('dragleave',()=>{if(--dragDepth<=0)document.body.classList.remove('dragging')});document.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');openFile(e.dataTransfer.files[0])});
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 editor.value=sample;try{const draft=JSON.parse(localStorage.getItem('folio-draft-v1'));if(draft&&typeof draft.text==='string'){editor.value=draft.text;$('filename').value=draft.name||'Untitled.md';for(const [key,val]of Object.entries(draft.settings||{})){if(key==='numbers')$(key).checked=!!val;else if($(key)&&[...$(key).options].some(o=>o.value===String(val)))$(key).value=val}}}catch{}
+setupTheme();
 workspace=setupWorkspace({editor,preview:$('previewScroll'),pages:$('pages'),fit,isReady:()=>rendered===revision});
 lastSaved=editor.value;resetHistory();stats();ensureRendered();
 
