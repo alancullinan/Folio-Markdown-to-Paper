@@ -1,10 +1,10 @@
-const {chromium}=require('playwright');
+const {chromium,firefox}=require('playwright');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const {pathToFileURL}=require('node:url');
 
 (async()=>{
- const browser=await chromium.launch({headless:true});
+ const browser=await (process.env.FOLIO_TEST_BROWSER==='firefox'?firefox:chromium).launch({headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
@@ -20,6 +20,21 @@ const {pathToFileURL}=require('node:url');
    return page.evaluate(line=>{const e=document.querySelector('#previewScroll'),h=document.querySelector(`#pages h2[data-source-line="${line}"]`);return h.getBoundingClientRect().top-e.getBoundingClientRect().top},line);
   }
   let offset=await sourceToHeading();assert(Math.abs(offset-72)<8,`Source alignment: ${offset}`);
+  // Re-pagination must not move either pane, even for a single typed character.
+  for (const linked of [true,false]) {
+    await page.locator('#linkedScroll').setChecked(linked);
+    await page.locator('#editor').evaluate((e,text)=>{const caret=text.indexOf('## Section 16')+3;e.focus({preventScroll:true});e.setSelectionRange(caret,caret)},text);
+    await page.waitForTimeout(250);
+    await page.evaluate(()=>{
+      window.scrollSamples=[];window.recordScroll=true;
+      const sample=()=>{window.scrollSamples.push([document.querySelector('#editor').scrollTop,document.querySelector('#previewScroll').scrollTop]);if(window.recordScroll)requestAnimationFrame(sample)};sample();
+    });
+    await page.keyboard.type('x');await ready();await page.waitForTimeout(200);
+    const samples=await page.evaluate(()=>{window.recordScroll=false;return window.scrollSamples});
+    for (const pane of [0,1]) {const values=samples.map(sample=>sample[pane]);assert(Math.max(...values)-Math.min(...values)<3,`Typing moved pane ${pane} (linked=${linked}): ${Math.min(...values)}..${Math.max(...values)}`)}
+    await page.keyboard.press('Backspace');await ready();
+  }
+  await page.locator('#linkedScroll').check();await sourceToHeading();
   await page.evaluate(line=>{const p=document.querySelector('#previewScroll');p.dispatchEvent(new Event('wheel'));const h=document.querySelector(`#pages h2[data-source-line="${line+6}"]`)||document.querySelectorAll('#pages h2')[18];p.scrollTop+=h.getBoundingClientRect().top-p.getBoundingClientRect().top-72},line);
   await page.waitForTimeout(250);
   const linkedPosition=await page.locator('#editor').evaluate(e=>e.scrollTop);assert(linkedPosition>1000);

@@ -24,6 +24,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   document.body.append(mirror);
   let anchors = [], lineOffsets = [], lineEnd = 0, measuredText = null, measuredWidth = 0;
   let mapDirty = true, scheduled = 0, leader = editor, suppress = null, suppressionTimer;
+  let rendering = false;
   let split = 38;
   try { const saved = JSON.parse(localStorage.getItem('folio-workspace-v1')); if (saved) { linked.checked = saved.linked !== false; split = Math.max(25, Math.min(70, Number(saved.split) || 38)); } } catch {}
   const save = () => { try { localStorage.setItem('folio-workspace-v1', JSON.stringify({linked: linked.checked, split})); } catch {} };
@@ -98,7 +99,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     return anchors.at(-1)[to];
   }
   function sync(from=leader) {
-    if (!linked.checked || !splitVisible() || !isReady()) return;
+    if (rendering || !linked.checked || !splitVisible() || !isReady()) return;
     if (mapDirty) buildMap();
     if (!anchors.length) return;
     const to = from===editor ? preview : editor;
@@ -115,7 +116,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     suppressionTimer=setTimeout(()=>{suppress=null},120);
   }
   function onScroll(event) {
-    if (event.currentTarget===suppress) return;
+    if (event.currentTarget===suppress || (event.currentTarget===preview && (rendering || !isReady()))) return;
     leader=event.currentTarget;
     cancelAnimationFrame(scheduled);
     scheduled=requestAnimationFrame(()=>sync(leader));
@@ -222,9 +223,25 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     const block=event.target.closest('[data-source-line]');
     if (block && pages.contains(block)) {event.preventDefault();editBlock(block)}
   });
-  function refresh() {
+  function preserveRenderPosition() {
+    rendering = true;
+    cancelAnimationFrame(scheduled);
+    const top = preview.scrollTop, left = preview.scrollLeft;
+    const minimum = pages.style.minHeight;
+    // Keep the scrollable area intact while Paged.js removes and rebuilds pages.
+    pages.style.minHeight = `${pages.getBoundingClientRect().height / (Number(getComputedStyle(pages).zoom) || 1)}px`;
+    return () => {
+      suppress = preview; clearTimeout(suppressionTimer);
+      pages.style.minHeight = minimum;
+      preview.scrollTop = top; preview.scrollLeft = left;
+      rendering = false;
+      suppressionTimer=setTimeout(()=>{suppress=null},120);
+      refresh(false);
+    };
+  }
+  function refresh(align = true) {
     invalidate(); cancelAnimationFrame(scheduled);
-    scheduled=requestAnimationFrame(()=>{decoratePreview();sync(leader)});
+    scheduled=requestAnimationFrame(()=>{decoratePreview();if (!rendering && isReady() && mapDirty) buildMap();if (align) sync(leader)});
   }
   for (const pane of [editor,preview]) {
     pane.addEventListener('scroll',onScroll,{passive:true});
@@ -232,7 +249,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   }
   linked.addEventListener('change',()=>{save();leader=editor;refresh()});
   new ResizeObserver(()=>{fit();refresh()}).observe(editor);
-  new ResizeObserver(refresh).observe(pages);
+  new ResizeObserver(()=>refresh(false)).observe(pages);
   window.addEventListener('resize',refresh);
   let drag=null;
   divider.addEventListener('pointerdown',event=>{
@@ -250,5 +267,5 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
     event.preventDefault();setSplit(event.key==='Home'?25:event.key==='End'?70:split+(event.key==='ArrowLeft'?-2:2));save();fit();refresh();
   });
-  return {invalidate,refresh};
+  return {invalidate,refresh,preserveRenderPosition};
 }
