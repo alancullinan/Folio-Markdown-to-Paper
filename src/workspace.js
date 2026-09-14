@@ -130,6 +130,23 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
       block.setAttribute('aria-keyshortcuts', 'Enter');
     }
   }
+  function comparableText(value) {
+    const positions = [];
+    const decoder = document.createElement('textarea');
+    let text = '';
+    const pattern = /&(?:#[xX][0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]+);|\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]|\.\.\.|---|--|\([cCrR]\)|\([tT][mM]\)|\+-|[\s\S]/g;
+    for (const match of value.matchAll(pattern)) {
+      let part = match[0];
+      if (part.startsWith('&') && part.endsWith(';')) { decoder.innerHTML = part; part = decoder.value; }
+      else if (part.startsWith('\\') && part.length === 2) part = part.slice(1);
+      const replacements = {'...':'\u2026','---':'\u2014','--':'\u2013','(c)':'\u00a9','(r)':'\u00ae','(tm)':'\u2122','+-':'\u00b1'};
+      part = replacements[part.toLowerCase()] || part;
+      part = part.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\s/g, ' ');
+      for (let i=0;i<part.length;i++) {positions.push(match.index);text += part[i];}
+    }
+    positions.push(value.length);
+    return {text, positions};
+  }
   function clickedOffset(block, event, start, end) {
     if (!event) return start;
     const point = document.caretPositionFromPoint?.(event.clientX, event.clientY);
@@ -141,15 +158,30 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     if (node.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) return start;
     const source = editor.value.slice(start, end);
     let cursor = 0;
+    const comparable = comparableText(source);
     // Include earlier page fragments so repeated text maps to the correct occurrence.
     for (const piece of pages.querySelectorAll('[data-source-line]')) {
       if (piece.dataset.sourceLine !== block.dataset.sourceLine || piece.dataset.sourceEnd !== block.dataset.sourceEnd || piece.querySelector('[data-source-line]')) continue;
       const walker = document.createTreeWalker(piece, NodeFilter.SHOW_TEXT);
       for (let text = walker.nextNode(); text; text = walker.nextNode()) {
         if (text.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) continue;
+        if (!text.data.trim()) continue; // Layout whitespace between table cells is not source text.
         const index = source.indexOf(text.data, cursor);
-        if (text === node) return index < 0 ? start : start + index + offset;
-        if (index >= 0) cursor = index + text.length;
+        if (index >= 0) {
+          if (text === node) return start + index + offset;
+          cursor = index + text.length;
+          continue;
+        }
+        // Smart quotes, entities and escapes change rendered text and its length.
+        const rendered = comparableText(text.data);
+        const from = comparable.positions.findIndex(position => position >= cursor);
+        const match = comparable.text.indexOf(rendered.text, from);
+        if (text === node) {
+          if (match < 0) return start;
+          const boundary = rendered.positions.findIndex(position => position >= offset);
+          return start + comparable.positions[match + boundary];
+        }
+        if (match >= 0) cursor = comparable.positions[match + rendered.text.length];
       }
       if (piece === block) break;
     }

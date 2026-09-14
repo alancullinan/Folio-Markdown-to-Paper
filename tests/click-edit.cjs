@@ -1,10 +1,10 @@
-const {chromium}=require('playwright');
+const {chromium,firefox}=require('playwright');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const {pathToFileURL}=require('node:url');
 
 (async()=>{
- const browser=await chromium.launch({headless:true});
+ const browser=await (process.env.FOLIO_TEST_BROWSER==='firefox'?firefox:chromium).launch({headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
@@ -41,6 +41,21 @@ const {pathToFileURL}=require('node:url');
   // A text selection in the preview must remain copyable.
   await page.locator('#pages h1').evaluate(e=>{const r=document.createRange();r.selectNodeContents(e);const s=window.getSelection();s.removeAllRanges();s.addRange(r);e.dispatchEvent(new MouseEvent('click',{bubbles:true,button:0}))});assert.deepEqual(await page.locator('#editor').evaluate(e=>[e.selectionStart,e.selectionEnd]),before);
   await page.evaluate(()=>window.getSelection().removeAllRanges());
+  for (const markdown of ['A "quoted phrase" followed by target words.', "It's a paragraph with target words.", 'A pause... then -- more target words.', 'An &amp; entity with target words.', 'An escaped \\* symbol with target words.']) {
+    await page.locator('#editor').fill(markdown);await ready();
+    const point=await page.locator('#pages p').first().evaluate(el=>{
+      const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let node;
+      while(node=walker.nextNode()) {const index=node.data.indexOf('target');if(index<0)continue;
+        const range=document.createRange();range.setStart(node,index+3);range.setEnd(node,index+4);
+        const rect=range.getBoundingClientRect();return {x:rect.left+.1,y:rect.top+rect.height/2};
+      }
+      throw new Error('Missing target');
+    });
+    await page.mouse.click(point.x,point.y);
+    const expected=markdown.indexOf('target')+3;
+    assert.deepEqual(await page.locator('#editor').evaluate(e=>[e.selectionStart,e.selectionEnd]),[expected,expected],markdown);
+  }
+  await page.locator('#editor').fill(source);await ready();
   await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Preview',exact:true}).click();await page.locator('#pages h1').click();assert(await page.locator('#editor').isVisible());await caretAt('# A title');
   assert.deepEqual(errors,[]);console.log('PASS: nested text, headings, tables, code, keyboard activation, preview-only/mobile reveal, unlinked scrolling, undo, links, and copy selection.');
  }finally{await browser.close()}
