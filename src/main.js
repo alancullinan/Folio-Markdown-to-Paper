@@ -115,7 +115,7 @@ function recordHistory(event){
  lastEditTime=now;lastEditType=kind;lastCursor=editor.selectionEnd;mergeTyping=false;historyButtons();
 }
 function travelHistory(step){const next=historyIndex+step;if(next<0||next>=history.length)return;rememberSelection();historyIndex=next;const state=history[next];restoring=true;editor.value=state.text;editor.focus();editor.setSelectionRange(state.start,state.end);editor.scrollTop=state.scroll;changed();restoring=false;lastEditType='';lastCursor=-1;historyButtons()}
-function changed(event){workspace?.invalidate();recordHistory(event);dirty=editor.value!==lastSaved;revision++;stats();persist();$('renderState').textContent='Updating pages…';clearTimeout(timer);timer=setTimeout(ensureRendered,550)}
+function changed(event){workspace?.invalidate();recordHistory(event);dirty=editor.value!==lastSaved;revision++;stats();persist();$('renderState').textContent='Updating pages…';clearTimeout(timer);timer=setTimeout(ensureRendered,150)}
 let workspace;
 function fit(align=true){const page=$('pages').querySelector('.pagedjs_page');if(!page)return;const v=$('zoom').value;$('pages').style.zoom=v==='fit'?Math.max(.2,($('previewScroll').clientWidth-60)/page.offsetWidth):Number(v);workspace?.refresh(align)}
 async function renderOnce(){
