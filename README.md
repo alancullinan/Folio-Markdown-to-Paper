@@ -6,7 +6,7 @@ A browser-based Markdown editor with a live, paginated A4 preview. Documents are
 
 - Open, edit, and save Markdown; recover a local browser draft.
 - **Dark mode:** follows your system appearance initially, with a toggle that remembers your choice. The paper preview and printed output stay light.
-- **Click to edit:** click a paragraph, heading, table, or code block in the preview to select its matching Markdown in the editor. Preview-only mode reveals the editor automatically. You can also focus a block and press Enter. Links and drag-to-copy selections retain their usual behaviour.
+- **Click to edit:** click a paragraph, heading, table, or code block in the preview to place the cursor at the corresponding text position in the Markdown editor without selecting text. Generated content or text that cannot be mapped falls back to the block start. Preview-only mode reveals the editor automatically. You can also focus a block and press Enter. Links and drag-to-copy selections retain their usual behaviour.
 - **Link scrolling:** scroll either pane to follow the corresponding source or rendered block. Handles wrapped source lines and page boundaries. Uncheck to scroll independently.
 - **Resize the panes:** drag the centre divider. Double-click to reset; focus it and use arrow keys for keyboard control.
 - Undo/redo for typing, formatting, and insertions.

@@ -130,21 +130,48 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
       block.setAttribute('aria-keyshortcuts', 'Enter');
     }
   }
-  function editBlock(block) {
+  function clickedOffset(block, event, start, end) {
+    if (!event) return start;
+    const point = document.caretPositionFromPoint?.(event.clientX, event.clientY);
+    const range = !point && document.caretRangeFromPoint?.(event.clientX, event.clientY);
+    const node = point?.offsetNode || range?.startContainer;
+    const offset = point?.offset ?? range?.startOffset;
+    if (!node || node.nodeType !== Node.TEXT_NODE || !block.contains(node)) return start;
+    // Generated diagrams and equations do not have a direct text-to-source mapping.
+    if (node.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) return start;
+    const source = editor.value.slice(start, end);
+    let cursor = 0;
+    // Include earlier page fragments so repeated text maps to the correct occurrence.
+    for (const piece of pages.querySelectorAll('[data-source-line]')) {
+      if (piece.dataset.sourceLine !== block.dataset.sourceLine || piece.dataset.sourceEnd !== block.dataset.sourceEnd || piece.querySelector('[data-source-line]')) continue;
+      const walker = document.createTreeWalker(piece, NodeFilter.SHOW_TEXT);
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        if (text.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) continue;
+        const index = source.indexOf(text.data, cursor);
+        if (text === node) return index < 0 ? start : start + index + offset;
+        if (index >= 0) cursor = index + text.length;
+      }
+      if (piece === block) break;
+    }
+    return start;
+  }
+  function editBlock(block, event) {
     if (!isReady()) return;
     const lines = editor.value.split('\n');
     const startLine = Number(block.dataset.sourceLine), endLine = Number(block.dataset.sourceEnd);
     if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 0 || endLine <= startLine || endLine > lines.length) return;
     const start = lines.slice(0, startLine).reduce((n,line)=>n+line.length+1,0);
     const end = Math.min(editor.value.length, start+lines.slice(startLine,endLine).join('\n').length);
+    const caret = clickedOffset(block, event, start, end);
+    const caretLine = editor.value.slice(0, caret).split('\n').length - 1;
     leader = editor;
     if (main.dataset.view === 'preview') document.querySelector('.view-tabs [data-view="split"]').click();
-    // Selecting the original source block also works for fragments split across pages.
+    // Collapse the selection so typing cannot replace the source block.
     editor.focus({preventScroll:true});
-    editor.setSelectionRange(start, end);
+    editor.setSelectionRange(caret, caret);
     measureSource();
     suppress = preview; clearTimeout(suppressionTimer);
-    editor.scrollTop = Math.max(0,lineOffsets[startLine]-Math.min(72,editor.clientHeight*.15));
+    editor.scrollTop = Math.max(0,lineOffsets[caretLine]-Math.min(72,editor.clientHeight*.15));
     editor.dispatchEvent(new Event('click')); // Refresh the line/column indicator.
     if (!matchMedia('(min-width: 721px)').matches) editor.scrollIntoView({block:'center'});
     suppressionTimer=setTimeout(()=>{suppress=null},120);
@@ -156,7 +183,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return; // Keep drag-to-copy working.
     const block=event.target.closest('[data-source-line]');
-    if (block && pages.contains(block)) editBlock(block);
+    if (block && pages.contains(block)) editBlock(block, event);
   });
   pages.addEventListener('keydown',event=>{
     if (event.key !== 'Enter' || event.target.closest('a,button,input,select,textarea,summary')) return;
