@@ -22,6 +22,12 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   mirror.className = 'source-measure';
   mirror.setAttribute('aria-hidden', 'true');
   document.body.append(mirror);
+  const previewCaret = document.createElement('div');
+  previewCaret.className = 'preview-caret';
+  previewCaret.setAttribute('aria-hidden', 'true');
+  previewCaret.hidden = true;
+  document.body.append(previewCaret);
+  let caretFrame = 0;
   let anchors = [], lineOffsets = [], lineEnd = 0, measuredText = null, measuredWidth = 0;
   let mapDirty = true, scheduled = 0, leader = editor, suppress = null, suppressionTimer;
   let rendering = false, refreshScheduled = 0, pendingScroll = null;
@@ -125,7 +131,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     cancelAnimationFrame(scheduled);
     scheduled=requestAnimationFrame(()=>sync(leader));
   }
-  function invalidate() { mapDirty=true; }
+  function invalidate() { mapDirty=true;scheduleCaret(); }
   function decoratePreview() {
     if (!isReady()) return;
     for (const block of pages.querySelectorAll('[data-source-line]')) {
@@ -161,37 +167,78 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     if (!node || node.nodeType !== Node.TEXT_NODE || !block.contains(node)) return start;
     // Generated diagrams and equations do not have a direct text-to-source mapping.
     if (node.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) return start;
+    for (const mapping of mappedText(block, start, end)) {
+      if (mapping.node === node) return mapping.sourceOffset(offset);
+    }
+    return start;
+  }
+  function* mappedText(block, start, end) {
     const source = editor.value.slice(start, end);
-    let cursor = 0;
     const comparable = comparableText(source);
-    // Include earlier page fragments so repeated text maps to the correct occurrence.
+    let cursor = 0;
     for (const piece of pages.querySelectorAll('[data-source-line]')) {
       if (piece.dataset.sourceLine !== block.dataset.sourceLine || piece.dataset.sourceEnd !== block.dataset.sourceEnd || piece.querySelector('[data-source-line]')) continue;
       const walker = document.createTreeWalker(piece, NodeFilter.SHOW_TEXT);
       for (let text = walker.nextNode(); text; text = walker.nextNode()) {
-        if (text.parentElement.closest('svg, .katex, [data-diagram], [data-math]')) continue;
-        if (!text.data.trim()) continue; // Layout whitespace between table cells is not source text.
+        if (text.parentElement.closest('svg, .katex, [data-diagram], [data-math]') || !text.data.trim()) continue;
         const index = source.indexOf(text.data, cursor);
         if (index >= 0) {
-          if (text === node) return start + index + offset;
+          yield {node:text, sourceOffset:offset=>start+index+offset};
           cursor = index + text.length;
           continue;
         }
-        // Smart quotes, entities and escapes change rendered text and its length.
         const rendered = comparableText(text.data);
         const from = comparable.positions.findIndex(position => position >= cursor);
         const match = comparable.text.indexOf(rendered.text, from);
-        if (text === node) {
-          if (match < 0) return start;
-          const boundary = rendered.positions.findIndex(position => position >= offset);
-          return start + comparable.positions[match + boundary];
-        }
-        if (match >= 0) cursor = comparable.positions[match + rendered.text.length];
+        if (match < 0) continue;
+        yield {node:text, sourceOffset:offset=>start+comparable.positions[match+rendered.positions.findIndex(position=>position>=offset)]};
+        cursor = comparable.positions[match + rendered.text.length];
       }
-      if (piece === block) break;
     }
-    return start;
   }
+  function scheduleCaret() {
+    cancelAnimationFrame(caretFrame);
+    caretFrame = requestAnimationFrame(updatePreviewCaret);
+  }
+  function updatePreviewCaret() {
+    previewCaret.hidden = true;
+    if (rendering || !isReady() || document.activeElement !== editor || editor.selectionStart !== editor.selectionEnd || !preview.getClientRects().length) return;
+    const position = editor.selectionStart;
+    const lines = editor.value.split('\n');
+    const line = editor.value.slice(0, position).split('\n').length - 1;
+    const block = [...pages.querySelectorAll('[data-source-line]')].find(el=>!el.querySelector('[data-source-line]') && Number(el.dataset.sourceLine)<=line && Number(el.dataset.sourceEnd)>line);
+    if (!block) return;
+    const startLine = Number(block.dataset.sourceLine), endLine = Number(block.dataset.sourceEnd);
+    const start = lines.slice(0,startLine).reduce((n,text)=>n+text.length+1,0);
+    const end = Math.min(editor.value.length,start+lines.slice(startLine,endLine).join('\n').length);
+    let nearest = null, distance = Infinity;
+    for (const mapping of mappedText(block,start,end)) {
+      let low = 0, high = mapping.node.length;
+      while (low<high) {const mid=(low+high)>>1;if (mapping.sourceOffset(mid)<position) low=mid+1;else high=mid;}
+      for (const offset of [Math.max(0,low-1),low]) {
+        const gap=Math.abs(mapping.sourceOffset(offset)-position);
+        if (gap<distance) {distance=gap;nearest={node:mapping.node,offset};}
+      }
+      if (!distance) break;
+    }
+    if (!nearest) return;
+    const range = document.createRange();
+    range.setStart(nearest.node,nearest.offset);range.collapse(true);
+    let rect=range.getBoundingClientRect(), x=rect.left;
+    if (!rect.height) {
+      const offset=Math.min(nearest.offset,nearest.node.length-1);
+      range.setStart(nearest.node,offset);range.setEnd(nearest.node,offset+1);
+      rect=range.getBoundingClientRect();x=nearest.offset===nearest.node.length?rect.right:rect.left;
+    }
+    const bounds=preview.getBoundingClientRect();
+    const top=Math.max(rect.top,bounds.top,0), bottom=Math.min(rect.bottom,bounds.bottom,innerHeight);
+    if (bottom<=top || x<bounds.left || x>Math.min(bounds.right,innerWidth)-2) return;
+    Object.assign(previewCaret.style,{left:`${x}px`,top:`${top}px`,height:`${bottom-top}px`});
+    previewCaret.hidden=false;
+  }
+  for (const event of ['click','keyup','select','input','focus','blur']) editor.addEventListener(event,scheduleCaret);
+  document.addEventListener('selectionchange',scheduleCaret);
+  window.addEventListener('scroll',scheduleCaret,true);
   function editBlock(block, event) {
     if (!isReady()) return;
     const lines = editor.value.split('\n');
@@ -230,6 +277,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   });
   function preserveRenderPosition() {
     rendering = true;
+    previewCaret.hidden=true;
     cancelAnimationFrame(scheduled);
     const top = preview.scrollTop, left = preview.scrollLeft;
     const minimum = pages.style.minHeight;
@@ -247,7 +295,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   function refresh(align = true) {
     invalidate(); cancelAnimationFrame(refreshScheduled);
     refreshScheduled=requestAnimationFrame(()=>{
-      decoratePreview();
+      decoratePreview();scheduleCaret();
       if (rendering || !isReady()) return;
       if (mapDirty) buildMap();
       if (pendingScroll) {leader=pendingScroll;pendingScroll=null;sync(leader)}

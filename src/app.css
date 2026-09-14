@@ -39,3 +39,8 @@ html[data-theme="dark"]{color-scheme:dark;--ink:#e0e8df;--muted:#a6b3a9;--line:#
 }
 @media print{html,body,#pages{color-scheme:light!important}}
 .style-fields{display:grid;grid-template-columns:120px minmax(0,1fr);gap:15px;align-items:center;margin:25px 0}.style-fields select{padding:10px;border:1px solid var(--line);border-radius:5px;background:transparent;color:var(--ink);width:100%}.style-check{display:flex;gap:10px;align-items:center;font-size:14px}.style-check input{accent-color:var(--accent)}
+
+/* A screen-only caret overlay; never participates in paper layout. */
+.preview-caret{position:fixed;width:2px;background:#24654f;box-shadow:0 0 0 1px #fff9;pointer-events:none;z-index:5;border-radius:1px}
+.preview-caret[hidden]{display:none}
+@media print{.preview-caret{display:none!important}}
