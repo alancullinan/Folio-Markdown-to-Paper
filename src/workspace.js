@@ -203,12 +203,13 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     editor.focus({preventScroll:true});
     editor.setSelectionRange(caret, caret);
     measureSource();
-    suppress = preview; clearTimeout(suppressionTimer);
+    // Ignore the editor scroll caused by revealing this caret.
+    suppress = editor; clearTimeout(suppressionTimer);
     editor.scrollTop = Math.max(0,lineOffsets[caretLine]-Math.min(72,editor.clientHeight*.15));
     editor.dispatchEvent(new Event('click')); // Refresh the line/column indicator.
-    if (!matchMedia('(min-width: 721px)').matches) editor.scrollIntoView({block:'center'});
+    if (!matchMedia('(min-width: 721px)').matches) editor.scrollIntoView({block:'nearest'});
     suppressionTimer=setTimeout(()=>{suppress=null},120);
-    refresh();
+    refresh(false);
   }
   pages.addEventListener('click',event=>{
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

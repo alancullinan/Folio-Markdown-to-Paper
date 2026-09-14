@@ -20,6 +20,18 @@ const {pathToFileURL}=require('node:url');
    return page.evaluate(line=>{const e=document.querySelector('#previewScroll'),h=document.querySelector(`#pages h2[data-source-line="${line}"]`);return h.getBoundingClientRect().top-e.getBoundingClientRect().top},line);
   }
   let offset=await sourceToHeading();assert(Math.abs(offset-72)<8,`Source alignment: ${offset}`);
+  // Clicking the preview may reveal source, but must not realign the preview.
+  await page.evaluate(line=>{
+    const p=document.querySelector('#previewScroll'),h=document.querySelector(`#pages h2[data-source-line="${line}"]`);
+    p.dispatchEvent(new Event('wheel'));p.scrollTop+=h.getBoundingClientRect().top-p.getBoundingClientRect().top-250;
+  },line);
+  await page.waitForTimeout(250);
+  const clickPosition=await page.evaluate(()=>[document.querySelector('#previewScroll').scrollTop,window.scrollY]);
+  await page.locator(`#pages h2[data-source-line="${line}"]`).click();
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(()=>[document.querySelector('#previewScroll').scrollTop,window.scrollY]),clickPosition,'Preview click moved the reading position');
+  assert(await page.locator('#editor').evaluate(e=>e===document.activeElement && e.selectionStart===e.selectionEnd));
+  await sourceToHeading();
   // Re-pagination must not move either pane, even for a single typed character.
   for (const linked of [true,false]) {
     await page.locator('#linkedScroll').setChecked(linked);
