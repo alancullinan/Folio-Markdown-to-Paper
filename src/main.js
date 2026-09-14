@@ -146,7 +146,8 @@ async function renderOnce(){
  rendered=rev;fit(false);$('pageCount').textContent=`/ ${flow.total} ${flow.total===1?'PAGE':'PAGES'}`;$('renderState').textContent=warnings?`Ready · ${warnings} image or diagram warning(s)`:`${opts.paper} · ${opts.margin} mm margins · Ready to print`;
  } finally {restorePosition?.()}
 }
-async function ensureRendered(){if(running)return running;clearTimeout(timer);running=(async()=>{try{while(rendered!==revision)await renderOnce()}catch(err){$('renderState').textContent='Preview failed — your source is safe. Edit to retry.';toast('Could not render this document. '+err.message);console.error(err)}finally{running=null;$('pdf').disabled=$('print').disabled=rendered!==revision}})();return running}
+// Clear the queue after assigning its promise, even when there is nothing new to render.
+async function ensureRendered(){if(running)return running;clearTimeout(timer);running=(async()=>{try{while(rendered!==revision)await renderOnce()}catch(err){$('renderState').textContent='Preview failed — your source is safe. Edit to retry.';toast('Could not render this document. '+err.message);console.error(err)}})().finally(()=>{running=null;$('pdf').disabled=$('print').disabled=rendered!==revision});return running}
 function insert(before,after='',placeholder='text'){rememberSelection();const start=editor.selectionStart,end=editor.selectionEnd,selection=editor.value.slice(start,end)||placeholder;editor.focus();editor.setRangeText(before+selection+after,start,end,'select');editor.setSelectionRange(start+before.length,start+before.length+selection.length);changed()}
 function heading(level){
  rememberSelection();const value=editor.value,start=editor.selectionStart,end=editor.selectionEnd;

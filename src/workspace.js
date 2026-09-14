@@ -24,7 +24,7 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
   document.body.append(mirror);
   let anchors = [], lineOffsets = [], lineEnd = 0, measuredText = null, measuredWidth = 0;
   let mapDirty = true, scheduled = 0, leader = editor, suppress = null, suppressionTimer;
-  let rendering = false;
+  let rendering = false, refreshScheduled = 0, pendingScroll = null;
   let split = 38;
   try { const saved = JSON.parse(localStorage.getItem('folio-workspace-v1')); if (saved) { linked.checked = saved.linked !== false; split = Math.max(25, Math.min(70, Number(saved.split) || 38)); } } catch {}
   const save = () => { try { localStorage.setItem('folio-workspace-v1', JSON.stringify({linked: linked.checked, split})); } catch {} };
@@ -116,7 +116,11 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     suppressionTimer=setTimeout(()=>{suppress=null},120);
   }
   function onScroll(event) {
-    if (event.currentTarget===suppress || (event.currentTarget===preview && (rendering || !isReady()))) return;
+    if (event.currentTarget===suppress) return;
+    if (rendering || !isReady()) {
+      if (event.currentTarget===editor) pendingScroll=editor;
+      return;
+    }
     leader=event.currentTarget;
     cancelAnimationFrame(scheduled);
     scheduled=requestAnimationFrame(()=>sync(leader));
@@ -241,12 +245,18 @@ export function setupWorkspace({ editor, preview, pages, fit, isReady }) {
     };
   }
   function refresh(align = true) {
-    invalidate(); cancelAnimationFrame(scheduled);
-    scheduled=requestAnimationFrame(()=>{decoratePreview();if (!rendering && isReady() && mapDirty) buildMap();if (align) sync(leader)});
+    invalidate(); cancelAnimationFrame(refreshScheduled);
+    refreshScheduled=requestAnimationFrame(()=>{
+      decoratePreview();
+      if (rendering || !isReady()) return;
+      if (mapDirty) buildMap();
+      if (pendingScroll) {leader=pendingScroll;pendingScroll=null;sync(leader)}
+      else if (align) sync(leader);
+    });
   }
   for (const pane of [editor,preview]) {
     pane.addEventListener('scroll',onScroll,{passive:true});
-    for(const event of ['wheel','pointerdown','touchstart']) pane.addEventListener(event,()=>{suppress=null;leader=pane},{passive:true});
+    for(const event of ['wheel','pointerdown','touchstart']) pane.addEventListener(event,()=>{suppress=null;leader=pane;if (event==='wheel' && (rendering || !isReady())) pendingScroll=pane},{passive:true});
   }
   linked.addEventListener('change',()=>{save();leader=editor;refresh()});
   new ResizeObserver(()=>{fit();refresh()}).observe(editor);
